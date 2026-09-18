@@ -1,0 +1,62 @@
+services:
+  db:
+    image: ankane/pgvector
+    restart: always
+    environment:
+      POSTGRES_USER: simple_rag_user
+      POSTGRES_PASSWORD: simple_rag_user_pw
+      POSTGRES_DB: simple_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simple_rag_user -d simple_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: always
+    environment: &db_env
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: simple_rag
+      DB_USER: simple_rag_user
+      DB_PASSWORD: simple_rag_user_pw
+    ports:
+      - "8000:8000"
+    volumes:
+      # モデルの重みをボリュームに残す。これが無いと再起動のたびに約3.5GB 落としに行く
+      - hf_models:/models
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ui:
+    build: .
+    restart: always
+    environment:
+      API_URL: http://api:8000/ask
+    command: streamlit run app/ui.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+
+  # 常駐させない一回きりのジョブ。`docker compose run --rm ingest` で叩く
+  ingest:
+    build: .
+    environment: *db_env
+    volumes:
+      - hf_models:/models
+    command: python app/ingest.py
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["tools"]
+
+volumes:
+  pgdata:
+  hf_models:
