@@ -34,7 +34,7 @@ services:
     restart: always
     working_dir: /app
     volumes:
-      -./app:/app/app
+    - ./app:/app/app
     RUN: pip install --no-cache-dir streamlit requests
     environment:
       API_URL: http://api:8000/ask
