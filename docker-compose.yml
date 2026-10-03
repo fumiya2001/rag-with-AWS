@@ -35,10 +35,9 @@ services:
     working_dir: /app
     volumes:
     - ./app:/app/app
-    RUN: pip install --no-cache-dir streamlit requests
     environment:
       API_URL: http://api:8000/ask
-    command: streamlit run app/ui.py --server.port 8501 --server.address 0.0.0.0
+    command: pip install --no-cache-dir streamlit requests &&streamlit run app/ui.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
     depends_on:
