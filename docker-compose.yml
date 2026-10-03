@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: simple_rag_user
       POSTGRES_PASSWORD: simple_rag_user_pw
       POSTGRES_DB: simple_rag
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,10 +23,7 @@ services:
       DB_NAME: simple_rag
       DB_USER: simple_rag_user
       DB_PASSWORD: simple_rag_user_pw
-    ports:
-      - "8000:8000"
     volumes:
-      # モデルの重みをボリュームに残す。これが無いと再起動のたびに約3.5GB 落としに行く
       - hf_models:/models
     depends_on:
       db:
@@ -45,7 +40,7 @@ services:
     depends_on:
       - api
 
-  # 常駐させない一回きりのジョブ。`docker compose run --rm ingest` で叩く
+  
   ingest:
     build: .
     environment: *db_env

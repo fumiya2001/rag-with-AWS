@@ -1,0 +1,99 @@
+---
+  - name: Create VM with AWS
+    hosts: localhost
+    gather_facts: no
+    vars:
+      project_name: "rag-with-AWS"
+      region: "us-east-1"
+      instance_type: "t3.small"
+      key_name: "aws-service"
+      image_id: "ami-0f8a61b66d1accaee"
+    tasks:
+      - name: Get my public IP
+        ansible.builtin.uri:
+          url: https://api.ipify.org
+          return_content: yes
+        register: my_ip
+      - name: Create a security group
+        amazon.aws.ec2_security_group:
+          name: "{{ project_name }}-sg"
+          description: "Security group for {{ project_name }}"
+          region: "{{ region }}"
+          rules:
+            - proto: tcp
+              from_port: 22
+              to_port: 22
+              cidr_ip: "{{ my_ip.content }}/32"
+        register: security_group
+      - name: Launch EC2 instance
+        amazon.aws.ec2_instance:
+          name: "{{ project_name }}"
+          key_name: "{{ key_name }}"
+          instance_type: "{{ instance_type }}"
+          image_id: "{{ image_id }}"
+          region: "{{ region }}"
+          volumes:
+            - device_name: /dev/sda1
+              ebs:
+                volume_size: 50
+                volume_type: gp2
+                delete_on_termination: true
+          security_group: "{{ security_group.group_id }}"
+          count: 1
+        register: ec2_instance
+      - name: Display the public IP of the instance
+        ansible.builtin.debug:
+          msg: "The public IP of the instance is {{ ec2_instance.instances[0].public_ip_address }}"
+
+      - name: Wait for SSH to come up
+        wait_for:
+          host: "{{ ec2_instance.instances[0].public_ip_address }}"
+          port: 22
+          delay: 10
+          timeout: 120
+      
+      - name: add host to groupname
+        ansible.builtin.add_host:
+          name: "{{ ec2_instance.instances[0].public_ip_address }}"
+          groups: new_instances
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: "/Users/OWNER/.ssh/aws-service.pem"
+          ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  
+  - name: Install docker and docker-compose on the new instance
+    hosts: new_instances
+    become: yes
+    vars:
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: "/Users/OWNER/.ssh/aws-service.pem"
+      ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    tasks:
+      - name: Update apt packages
+        ansible.builtin.apt:
+          update_cache: yes
+
+      - name: Install Docker and Docker Compose
+        ansible.builtin.apt:
+          name:
+            - docker.io
+            - docker-compose-v2
+          state: present
+
+      - name: Start Docker
+        ansible.builtin.service:
+          name: docker
+          state: started
+          enabled: yes
+      
+      - name: Add ubuntu user to docker group
+        ansible.builtin.user:
+          name: ubuntu
+          groups: docker
+          append: yes
+            
+      - name: Clone rag-with-AWS repository
+        ansible.builtin.git:
+          repo: 'https://github.com/fumiya2001/rag-with-AWS.git'
+          dest: /home/ubuntu/rag-with-AWS
+          single_branch: yes
+          version: main
