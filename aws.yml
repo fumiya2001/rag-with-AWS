@@ -5,7 +5,7 @@
     vars:
       project_name: "rag-with-AWS"
       region: "us-east-1"
-      instance_type: "t3.small"
+      instance_type: "t3.large"
       key_name: "aws-service"
       image_id: "ami-0f8a61b66d1accaee"
     tasks:
@@ -23,6 +23,11 @@
             - proto: tcp
               from_port: 22
               to_port: 22
+              cidr_ip: "{{ my_ip.content }}/32"
+
+            - proto: tcp
+              from_port: 8501
+              to_port: 8501
               cidr_ip: "{{ my_ip.content }}/32"
         register: security_group
       - name: Launch EC2 instance
