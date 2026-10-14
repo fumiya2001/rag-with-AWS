@@ -1,9 +1,10 @@
-from transformers import pipeline
+from openai import OpenAI
+from dotenv import load_dotenv
 
-MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
+load_dotenv()
 
-generator = pipeline("text-generation", model=MODEL_NAME, dtype="auto")
-
+client = OpenAI()
+MODEL_NAME = "gpt-4o-mini"  
 
 def generate_answer(query: str, contexts: list[str]) -> str:
     text = '\n\n'.join(contexts)
@@ -17,12 +18,9 @@ Question: {query}
 Answer:
 """
     
-    output = generator(prompt, max_new_tokens=100)
-    generated_text = output[0]['generated_text']
-    if generated_text.startswith(prompt):
-        generated_text = generated_text[len(prompt):]
+    output = client.responses.create(model=MODEL_NAME, input=prompt)
     
-    return generated_text.strip()
+    return output.output_text.strip()
 
 
 if __name__ == "__main__":
